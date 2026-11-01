@@ -1,0 +1,23 @@
+name: Build CurePlay 2.1 for Windows
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore packages
+        run: dotnet restore CurePlay/CurePlay.csproj -r win-x64
+      - name: Publish WPF (multi-file; safer than compressed single-file)
+        run: dotnet publish CurePlay/CurePlay.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false --no-restore -o publish
+      - name: Upload CurePlay folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: CurePlay-v2.1-windows-x64
+          path: publish/
+          if-no-files-found: error

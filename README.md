@@ -1,59 +1,55 @@
-# CurePlay v1 — Windows 10/11 gaming optimizer
+# CurePlay 2.1 — Smart Gaming Optimizer
 
-A WPF desktop application using C# and .NET 10. Gaming dark UI, system monitoring, 5-minute smart checks, process-name game detection, background tray mode, and conservative cleanup of old user TEMP files **only when disk space is low and no configured game is detected**.
+**C# · WPF · .NET 10 · Windows 10/11 · Developed by Nikita Batalov**
 
-## Important behavior
+Локальное приложение для наблюдения за производительностью, сетью и состоянием дисков. CurePlay не обещает увеличить FPS и **не меняет** BIOS, TCP, реестр, антивирус, память игр или драйверы.
 
-- CPU/RAM figures are **monitoring only**. No RAM trimming, page-cache flushes, forced process termination, service disabling, or registry tweaking.
-- Automatic cleanup triggers if the system disk has **less than 10 GB free OR less than 10% free**.
-- Only files older than 7 days under the current user's LocalAppData TEMP folder are eligible. No directories are removed. Symlink/reparse-point directories are skipped. In-use/protected files are skipped.
-- A pass deletes at most 500 files / 100 MiB. Files over 20 MiB are skipped. Cleanup is deferred while a recognized game runs.
-- Game detection uses a **configurable process-name list**. Add your game executable via "Настроить игры"; this is not a universal detection engine.
-- The five-minute interval is fixed in v1. The CPU meter requires a second sample to show a meaningful reading.
-- The app does **not** guarantee FPS improvements. Its primary purpose is conservative system housekeeping and visibility.
-- Closing the window hides it in the tray. Use tray icon → "Выход" to quit.
+## Первый запуск (Visual Studio 2026)
 
-## Source layout
+1. **Останови** прежний CurePlay (в системном трее → «Выход»). Распакуй v2.1 в **отдельную папку**.
+2. Visual Studio → `Файл → Открыть → Проект/решение` → `CurePlay/CurePlay.csproj`.
+3. При первом открытии дождись загрузки NuGet (`LibreHardwareMonitorLib` и `System.Management`). Нужен .NET 10 SDK и рабочая нагрузка «Разработка классических приложений .NET».
+4. Нажми **Ctrl+Shift+B**. Если ошибок нет, **F5**. Данные датчиков доступны не на каждом ПК; это не повод аварийно завершаться.
+5. Для завершения программы используй правый клик по значку CurePlay в системном трее → **Выход**. Крестик главного окна скрывает окно в трей.
 
-```
-CurePlay/
-  CurePlay.csproj
-  App.xaml, App.xaml.cs
-  MainWindow.xaml, MainWindow.xaml.cs
-  GameListWindow.xaml, GameListWindow.xaml.cs
-  Models/AppSettings.cs
-  Services/SettingsService.cs
-  Services/SystemMonitor.cs
-  Services/SmartOptimizer.cs
-.github/workflows/build-windows.yml
-```
+### Выпуск EXE локально
 
-## Build locally (Windows)
-
-1. Install the **.NET 10 SDK** (or Visual Studio 2026 with .NET desktop development workload).
-2. Open PowerShell in the repository root.
-3. Run:
+Дважды нажми `build-local.cmd` или запусти в папке проекта:
 
 ```powershell
 dotnet restore .\CurePlay\CurePlay.csproj -r win-x64
-dotnet publish .\CurePlay\CurePlay.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o .\publish
+dotnet publish .\CurePlay\CurePlay.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o .\publish
 ```
 
-4. Launch `publish\CurePlay.exe`. No separate .NET runtime installation is required for this self-contained build.
+Запускай `publish/CurePlay.exe` **вместе со всеми библиотеками из папки**. Версия с одним сжатым EXE раньше приводила к сбою `DllNotFoundException` на отдельной машине, поэтому намеренно публикуем multi-file. Для установки .NET SDK на ПК пользователя не требуется, если публикуется self-contained.
 
-## Build in GitHub without installing developer tools
+## Новое в v2.1
 
-1. Create a **private** repository on GitHub and upload **the contents of this archive**, including the hidden `.github` folder (keep the same paths).
-2. Go to **Actions → Build CurePlay Windows EXE → Run workflow**.
-3. After the workflow succeeds, open the run → **Artifacts → CurePlay-v1-win-x64**.
-4. Extract the ZIP to get `CurePlay.exe`. You can place the EXE anywhere and run it on Windows 10/11 x64.
+- **Собственная тёмная оконная панель** с кнопками и нативной зоной перемещения/изменения размеров через `WindowChrome`. Встроенная иконка и подпись `Developed by Nikita Batalov`.
+- **Dashboard**: CPU / GPU / RAM / ping с открываемыми графиками. Под RAM отображается тип и скорость MT/s, а в Settings даётся **осторожная оценка отличия** между `ConfiguredClockSpeed` и `Speed` SMBIOS. **Не** определяет гарантированную XMP/EXPO-возможность и ничего не разгоняет.
+- **Свободное место**: число ГБ + проценты + `Норма / Внимание / Критично` по порогам 20 ГБ/15% и 10 ГБ/8% (срабатывает по любому из условий).
+- **Smart Boost**: большая кнопка запуска с кольцевой анимацией и отдельная крупная кнопка включения режима. Реальная очистка осталась консервативной: только старые пользовательские TEMP-файлы при нехватке места и при отсутствии обнаруженной игры, максимум 500 файлов / 100 МБ.
+- **CureNet**: короткая ICMP-проверка каждые 5 секунд, 60 последних проб, средняя вариация времени ответа (jitter estimate), доля неответов, возможные обрывы по трём неответам подряд, примерная скорость суммарного сетевого трафика. Статус `—` / `<1 ms` / `Нет ответа` вместо фиктивного `0 ms`.
+- **Выбор узлов CureNet**: Cloudflare 1.1.1.1, Google 8.8.8.8, Quad9 9.9.9.9, OpenDNS, региональные AWS EC2 API (их ICMP может быть закрыт), а также тестовые хосты Vultr во Франкфурте, Стокгольме, Варшаве и Амстердаме, плюс ручной IP/hostname. **Москва** без вымышленного адреса — у пользователя есть ручной ввод проверенного хоста.
+- **Processes**: карточки с настоящими значками из exe, CPU/RAM, сортировкой, фильтром высокой нагрузки и **только ручным** запросом `CloseMainWindow()` с подтверждением. Нет `Kill`, скрытого закрытия служб или игр.
+- **Disk Health**: компактный список с меткой Windows Storage `Healthy / Warning / Unhealthy / Unknown`. По кнопке «Подробнее» отображаются доступные температуры и SMART-подобные датчики. Данные разных источников объединяются **только при узнаваемом совпадении моделей**. «Здоров» не доказывает отсутствие любых ошибок.
+- **Temperature Guard**: предупреждение звуком и всплывающим сообщением при показаниях CPU/GPU ≥93 °C, вручную 60–110 °C, с ограничением повторов до 1 раза в 2 минуты. Нельзя считать 93 °C универсальной безопасной температурой.
+- **Stutter Lab**: автоматический *System Hitch Watch* показывает **возможные системные перегрузки при обнаруженной игре**, но **не измеряет микрофризы в кадрах**. Для точного fps/frametime — кнопка «Скачать PresentMon» (официальный GitHub) и CSV-анализ по `MsBetweenPresents` / `FrameTimeMs`.
 
-The EXE is not code-signed. Windows SmartScreen may warn about an unknown publisher. Review the source and build workflow before running; do not disable antivirus.
+## Важные ограничения
 
-## Settings
+1. Не все материнские платы/драйверы открывают температуры или SMART. `N/A` и `Нет данных` — корректное состояние.
+2. ICMP-запросы могут блокироваться узлом или провайдером; это не доказывает, что пропал интернет. Ping до тестового узла ≠ игровой ping. Географические сервера могут менять адреса/доступность; можно ввести собственный.
+3. Windows WMI не позволяет гарантированно определить максимальную частоту RAM, XMP/EXPO-профиль или стабильность разгона.
+4. Без игрового PresentMon/ETW нельзя достоверно измерить кадровые фризы. CurePlay не встраивается в процесс игры и не создаёт оверлей.
+5. Встроенный монитор процессов показывает нагрузки CPU и RAM; **не приписывает** конкретному процессу трафик без соответствующего источника данных.
+6. Автоматическая очистка диска может удалить только удовлетворяющие условиям файлы из `%LOCALAPPDATA%/.../Temp` с проверкой symlink/возраста/лимитов; не запускай её во время незавершённых установок в пользовательской TEMP-папке.
+7. Сборка проверяется через Visual Studio на Windows. В окружении, где создавался ZIP, компилятор .NET отсутствует; **сборка/запуск на реальном Windows не были выполнены**.
 
-Saved to `%LOCALAPPDATA%\CurePlay\settings.json`.
+## Ссылки
 
-## Limitations
+- Intel PresentMon (официальные сборки): https://github.com/GameTechDev/PresentMon/releases
+- Microsoft WPF WindowChrome: https://learn.microsoft.com/en-us/dotnet/api/system.windows.shell.windowchrome
+- Названия региональных тестовых хостов следует периодически перепроверять у провайдера: `fra-de-ping.vultr.com`, `sto-se-ping.vultr.com`, `waw-pl-ping.vultr.com`, `ams-nl-ping.vultr.com`.
 
-The code has been authored and statically reviewed, but **not compiled or runtime-tested in this environment**, which does not include the .NET SDK or Windows. The GitHub Actions workflow provides a Windows build and will surface any compilation errors. This is a prototype, not a benchmarked performance utility.
+Локальные настройки сохраняются в `%LOCALAPPDATA%\CurePlay\settings.json`; графики и журнал хранятся в оперативной памяти. Никаких фоновых соединений с сервером разработчика не создаётся.
